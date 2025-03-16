@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filament Label Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 76mm);
+            grid-template-rows: repeat(4, 57mm);
+            gap: 0px;
+            border-collapse: collapse;
+        }
+        .label {
+            width: 76mm;
+            height: 57mm;
+            border: 1px solid black;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .color-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 1px solid black;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: transparent;
+        }
+        .hex-box {
+            position: absolute;
+            top: 65px;
+            right: 10px;
+            width: 50px;
+            text-align: center;
+            background: white;
+            padding: 2px 5px;
+            border: 1px solid black;
+            text-transform: uppercase;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .bold {
+            font-weight: bold;
+            display: block;
+            font-size: 1.2em;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        input {
+            border: none;
+            outline: none;
+            font-size: 1em;
+        }
+        .hex-input {
+            display: block;
+            margin-top: 5px;
+        }
+        .info-table {
+            display: grid;
+            grid-template-columns: auto auto;
+            column-gap: 10px;
+            row-gap: 3px;
+            margin-top: 15px;
+        }
+        .info-table input {
+            width: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Filament Label Generator</h1>
+    <button onclick="generatePDF()">Download PDF</button>
+    <div class="grid" id="label-container"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let container = document.getElementById("label-container");
+
+            for (let i = 0; i < 8; i++) {
+                let label = document.createElement("div");
+                label.classList.add("label");
+                label.innerHTML = `
+                    <input type="text" placeholder="Brand" class="bold">
+                    <input type="text" placeholder="Filament Type" class="bold">
+                    <input type="text" placeholder="Color Name" class="bold">
+                    <div class="info-table">
+                        <span>Nozzle:</span> <input type="text" placeholder="Value">
+                        <span>Bed:</span> <input type="text" placeholder="Value">
+                        <span>Flow rate:</span> <input type="text" placeholder="Value">
+                        <span>Pressure Adv:</span> <input type="text" placeholder="Value">
+                    </div>
+                    <input type="text" class="hex-input" placeholder="#HEXCODE">
+                    <span class="color-circle"></span>
+                    <span class="hex-box">#HEXCODE</span>
+                `;
+
+                container.appendChild(label);
+            }
+
+            document.querySelectorAll('.hex-input').forEach(input => {
+                input.addEventListener('input', function () {
+                    let hexValue = this.value.trim().toUpperCase();
+                    
+                    if (!hexValue.startsWith("#")) {
+                        hexValue = "#" + hexValue;
+                    }
+
+                    let label = this.closest('.label');
+                    let circle = label.querySelector('.color-circle');
+                    let hexBox = label.querySelector('.hex-box');
+
+                    if (/^#([0-9A-F]{3}){1,2}$/i.test(hexValue)) {
+                        circle.style.backgroundColor = hexValue;
+                        hexBox.textContent = hexValue;
+                    } else {
+                        circle.style.backgroundColor = 'transparent';
+                        hexBox.textContent = '#HEXCODE';
+                    }
+                });
+            });
+        });
+
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            let pdf = new jsPDF('portrait', 'mm', 'a4');
+            let labels = document.querySelectorAll('.label');
+            let startX = 10, startY = 10;
+            let labelWidth = 76, labelHeight = 57;
+            let colSpacing = 10, rowSpacing = 10;
+
+            pdf.setFontSize(12);
+            labels.forEach((label, index) => {
+                let col = index % 2;
+                let row = Math.floor(index / 2);
+                let x = startX + col * (labelWidth + colSpacing);
+                let y = startY + row * (labelHeight + rowSpacing);
+                pdf.rect(x, y, labelWidth, labelHeight);
+
+                let inputs = label.querySelectorAll('input');
+                pdf.setFont(undefined, 'bold');
+                pdf.text(inputs[0].value, x + 5, y + 10);
+                pdf.text(inputs[1].value, x + 5, y + 16);
+                pdf.text(inputs[2].value, x + 5, y + 22);
+                
+                pdf.setFont(undefined, 'normal');
+
+                // 🟢 Lowered the Nozzle block by 5mm
+                pdf.text("Nozzle:", x + 5, y + 40);
+                pdf.text(inputs[3].value, x + 35, y + 40);
+                pdf.text("Bed:", x + 5, y + 45);
+                pdf.text(inputs[4].value, x + 35, y + 45);
+                pdf.text("Flow rate:", x + 5, y + 50);
+                pdf.text(inputs[5].value, x + 35, y + 50);
+                pdf.text("Pressure Adv:", x + 5, y + 55);
+                pdf.text(inputs[6].value, x + 35, y + 55);
+
+                let colorInput = label.querySelector('.hex-input');
+                let colorValue = colorInput.value.trim().toUpperCase();
+
+                if (!colorValue.startsWith("#")) {
+                    colorValue = "#" + colorValue;
+                }
+
+                if (!/^#([0-9A-F]{3}){1,2}$/i.test(colorValue)) {
+                    colorValue = "#FFFFFF";
+                }
+
+                pdf.setFillColor(colorValue);
+                pdf.circle(x + labelWidth - 15, y + 15, 8, 'F'); // 8mm filled circle
+
+                pdf.setDrawColor(0, 0, 0); // 🟢 Add black border to circle
+                pdf.circle(x + labelWidth - 15, y + 15, 8, 'S'); // 'S' for stroke only
+
+                pdf.text(colorValue, x + labelWidth - 15, y + 30, { align: "center" });
+            });
+
+            pdf.save("FilamentLabels.pdf");
+        }
+    </script>
+</body>
+</html>
